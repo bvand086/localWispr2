@@ -13,21 +13,6 @@ struct ContentView: View {
     @State private var transcriptionText = "Press the button or use Command+R to start recording..."
     @State private var isProcessing = false
     
-    private let whisperManager: WhisperManager
-    
-    init() {
-        if let modelURL = Bundle.main.url(forResource: "ggml-base.en", withExtension: "bin") {
-            do {
-                self.whisperManager = try WhisperManager(modelURL: modelURL)
-            } catch {
-                fatalError("Failed to initialize WhisperManager: \(error)")
-            }
-        } else {
-            fatalError("Could not find ggml-base.en.bin in the app bundle")
-        }
-    }
-
-    
     var body: some View {
         VStack(spacing: 20) {
             ScrollView {
@@ -83,10 +68,15 @@ struct ContentView: View {
         
         Task {
             do {
-                let segments = try await whisperManager.transcribe(audioFrames: frames)
-                let text = segments.map { $0.text }.joined(separator: " ")
+                // Initialize WhisperManager with model URL
+                let modelURL = URL(fileURLWithPath: "/Users/vandeben/Documents/localWispr/Resources/ggml-base.en.bin")
+                let whisperManager = try WhisperManager(modelURL: modelURL)
+                let text = try await whisperManager.transcribe(audioFrames: frames)
+                print("Transcription: \(text)")
                 await MainActor.run {
-                    transcriptionText = text
+                    transcriptionText = text.map { segment in
+                        segment.text
+                    }.joined()
                     isProcessing = false
                 }
             } catch {

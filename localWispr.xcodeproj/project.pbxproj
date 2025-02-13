@@ -6,10 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		8B9AF9CC2D5E5CD300A247B0 /* ggml-base.en.bin in Resources */ = {isa = PBXBuildFile; fileRef = 8B9AF9CB2D5E5CD300A247B0 /* ggml-base.en.bin */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
 		8B9AF9A62D5E3FE400A247B0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -31,7 +27,6 @@
 		8B9AF9942D5E3FE300A247B0 /* localWispr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = localWispr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8B9AF9A52D5E3FE400A247B0 /* localWisprTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = localWisprTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8B9AF9AF2D5E3FE400A247B0 /* localWisprUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = localWisprUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		8B9AF9CB2D5E5CD300A247B0 /* ggml-base.en.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = "ggml-base.en.bin"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -83,6 +78,11 @@
 			path = localWispr;
 			sourceTree = "<group>";
 		};
+		8B9AFA012D5E809F00A247B0 /* Resources_new */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Resources_new;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -113,11 +113,11 @@
 		8B9AF98B2D5E3FE300A247B0 = {
 			isa = PBXGroup;
 			children = (
-				8B9AF9CA2D5E5CB300A247B0 /* Resources */,
 				8B9AF9A82D5E3FE400A247B0 /* localWisprTests */,
 				8B9AF9B22D5E3FE400A247B0 /* localWisprUITests */,
 				8B9AF9952D5E3FE300A247B0 /* Products */,
 				8B9AF9ED2D5E5E4200A247B0 /* localWispr */,
+				8B9AFA012D5E809F00A247B0 /* Resources_new */,
 			);
 			sourceTree = "<group>";
 		};
@@ -129,14 +129,6 @@
 				8B9AF9AF2D5E3FE400A247B0 /* localWisprUITests.xctest */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		8B9AF9CA2D5E5CB300A247B0 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				8B9AF9CB2D5E5CD300A247B0 /* ggml-base.en.bin */,
-			);
-			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -200,6 +192,7 @@
 			fileSystemSynchronizedGroups = (
 				8B9AF9B22D5E3FE400A247B0 /* localWisprUITests */,
 				8B9AF9ED2D5E5E4200A247B0 /* localWispr */,
+				8B9AFA012D5E809F00A247B0 /* Resources_new */,
 			);
 			name = localWisprUITests;
 			packageProductDependencies = (
@@ -257,7 +250,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8B9AF9CC2D5E5CD300A247B0 /* ggml-base.en.bin in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

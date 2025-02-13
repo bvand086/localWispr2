@@ -1,79 +1,120 @@
 import AVFoundation
+import SwiftUI
+
+// Import WhisperError and WhisperManager
+@_exported import Foundation
+
+// Add this error definition at the top of the file
+public enum WhisperError: Error {
+    case invalidAudioFormat
+    case audioCaptureError
+    case permissionDenied
+}
 
 /// Manages audio capture for macOS using AVAudioEngine
-class AudioCaptureManager: ObservableObject {
+public class AudioCaptureManager: ObservableObject {
     private let engine = AVAudioEngine()
     private var inputBuffer: [Float] = []
-    @Published var isRecording = false
-    private let whisperManager: WhisperManager
+    private var whisperManager: WhisperManager
     
-    init() {
-    if let modelURL = Bundle.main.url(forResource: "ggml-base.en", withExtension: "bin") {
+    @Published public var isRecording = false
+    
+    public init() {
+        // Direct file system access (development only)
+        let modelURL = URL(fileURLWithPath: "/Users/vandeben/Documents/localWispr/Resources/ggml-base.en.bin")
+        
+        // Verify file exists
+        guard FileManager.default.fileExists(atPath: modelURL.path) else {
+            fatalError("Whisper model not found at path: \(modelURL.path)")
+        }
+        
         do {
             self.whisperManager = try WhisperManager(modelURL: modelURL)
         } catch {
             fatalError("Failed to initialize WhisperManager: \(error)")
         }
-    } else {
-        fatalError("Could not find ggml-base.en.bin in the app bundle")
+        
+        // On macOS, still ensure microphone access is requested/available
+        AVCaptureDevice.requestAccess(for: .audio) { granted in
+            if !granted {
+                print("Microphone permission not granted.")
+            }
+        }
     }
-}
-
     
-    func startRecording() throws {
-        // Get the input node from the audio engine
+    public func startRecording() throws {
+        // --- 1) Use the input node's *output* format to see how the hardware is feeding the engine.
         let inputNode = engine.inputNode
-        let format = inputNode.outputFormat(forBus: 0)
+        let inputFormat = inputNode.outputFormat(forBus: 0)
         
-        // Define the desired audio format (16kHz mono PCM)
+        // --- 2) Define the desired audio format (16kHz mono PCM Float32)
         let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                        sampleRate: 16000,
-                                        channels: 1,
-                                        interleaved: false)!
+                                          sampleRate: 16000,
+                                          channels: 1,
+                                          interleaved: false)!
         
-        let converter = AVAudioConverter(from: format, to: desiredFormat)!
+        // --- 3) Validate the format for Whisper
+        let isValidFormat = (desiredFormat.sampleRate == 16000 &&
+                           desiredFormat.channelCount == 1 &&
+                           desiredFormat.commonFormat == .pcmFormatFloat32)
+        guard isValidFormat else {
+            throw WhisperError.invalidAudioFormat
+        }
+        
+        // --- 4) Prepare an AVAudioConverter from the hardware format to the desired (16kHz mono) format
+        guard let converter = AVAudioConverter(from: inputFormat, to: desiredFormat) else {
+            throw WhisperError.invalidAudioFormat
+        }
         
         // Reset the buffer before starting
-        inputBuffer = []
+        inputBuffer.removeAll()
         
-        // Install a tap on the input node to capture audio data
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+        // --- 5) Install a tap on the input node to capture audio and run it through the converter
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
             guard let self = self else { return }
             
-            // Prepare a buffer for converted audio data
-            let frameCount = UInt32(buffer.frameLength)
+            // Prepare an output buffer in the desired format
             let convertedBuffer = AVAudioPCMBuffer(pcmFormat: desiredFormat,
-                                                 frameCapacity: frameCount)!
+                                                   frameCapacity: AVAudioFrameCount(buffer.frameLength))!
             
             var error: NSError?
-            let status = converter.convert(to: convertedBuffer,
-                                        error: &error) { _, outStatus in
+            // Convert from the hardware buffer to our desired format
+            let status = converter.convert(to: convertedBuffer, error: &error) { inNumPackets, outStatus in
+                // We have new data from the mic every time this block is invoked
                 outStatus.pointee = .haveData
                 return buffer
             }
             
-            // Only append frames if conversion was successful
-            if status != .error, let channelData = convertedBuffer.floatChannelData?[0] {
-                let frames = Array(UnsafeBufferPointer(start: channelData,
-                                                     count: Int(convertedBuffer.frameLength)))
+            if status == .haveData,
+               let channelData = convertedBuffer.floatChannelData?[0] {
+                
+                // The converter tells us how many frames ended up in convertedBuffer
+                let frameCount = Int(convertedBuffer.frameLength)
+                let frames = Array(UnsafeBufferPointer(start: channelData, count: frameCount))
+                
+                // Append to our running buffer
                 self.inputBuffer.append(contentsOf: frames)
+            }
+            else if status == .endOfStream {
+                // Handle stream end if needed
+            }
+            else if status == .error || error != nil {
+                // Handle conversion errors if needed
             }
         }
         
-        // Start the audio engine
+        // --- 6) Start the audio engine
         try engine.start()
         isRecording = true
     }
     
-    func stopRecording() {
-        // Remove the tap and stop the engine
+    public func stopRecording() {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         isRecording = false
     }
     
-    func getAudioFrames() -> [Float] {
-        // Return the captured audio frames
+    public func getAudioFrames() -> [Float] {
         return inputBuffer
     }
 } 
