@@ -2,29 +2,25 @@
 #import "whisper.h"
 
 extern "C" {
-    NSString* whisperTranscribe(float* audioFrames, int frameCount) {
-        // Get the bundle path for the model file
-        NSString* modelPath = [[NSBundle mainBundle] pathForResource:@"ggml-base.en" ofType:@"bin"];
-        if (!modelPath) {
-            return @"Error: Model file not found in bundle";
-        }
-        
-        // Initialize whisper context
-        struct whisper_context* ctx = whisper_init_from_file([modelPath UTF8String]);
+    struct whisper_context* whisperCreateContext(const char* modelPath) {
+        struct whisper_context* ctx = whisper_init_from_file(modelPath);
+        return ctx;
+    }
+    
+    NSString* whisperRunInference(struct whisper_context* ctx, float* audioFrames, int frameCount, const char* language, bool translate) {
         if (!ctx) {
-            return @"Error: Could not initialize Whisper context";
+            return @"Error: Invalid Whisper context";
         }
         
         // Set up whisper parameters
         struct whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
         params.print_progress = false;
         params.print_special = false;
-        params.language = "en";
-        params.translate = false;
+        params.language = language;
+        params.translate = translate;
         
         // Run inference
         if (whisper_full(ctx, params, audioFrames, frameCount) != 0) {
-            whisper_free(ctx);
             return @"Error: Transcription failed";
         }
         
@@ -36,7 +32,12 @@ extern "C" {
             [result appendFormat:@"%s ", text];
         }
         
-        whisper_free(ctx);
         return result;
+    }
+    
+    void whisperFreeContext(struct whisper_context* ctx) {
+        if (ctx) {
+            whisper_free(ctx);
+        }
     }
 } 

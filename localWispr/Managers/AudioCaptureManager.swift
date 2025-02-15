@@ -1,48 +1,64 @@
 import AVFoundation
 import SwiftUI
-
-// Import WhisperError and WhisperManager
-@_exported import Foundation
-
-// Add this error definition at the top of the file
-public enum WhisperError: Error {
-    case invalidAudioFormat
-    case audioCaptureError
-    case permissionDenied
-}
+import Foundation
 
 /// Manages audio capture for macOS using AVAudioEngine
-public class AudioCaptureManager: ObservableObject {
+final class AudioCaptureManager: ObservableObject {
     private let engine = AVAudioEngine()
     private var inputBuffer: [Float] = []
-    private var whisperManager: WhisperManager
+    private var whisperManager: WhisperManager?
     
-    @Published public var isRecording = false
+    enum WhisperError: Error {
+        case initializationFailed
+        case invalidAudioFormat
+        case audioCaptureError
+        case transcriptionFailed
+        case permissionDenied
+    }
     
-    public init() {
+    @Published var isRecording = false
+    
+    init() {
         // Direct file system access (development only)
         let modelURL = URL(fileURLWithPath: "/Users/vandeben/Documents/localWispr/Resources/ggml-base.en.bin")
         
         // Verify file exists
         guard FileManager.default.fileExists(atPath: modelURL.path) else {
-            fatalError("Whisper model not found at path: \(modelURL.path)")
+            print("Error: Whisper model not found at path: \(modelURL.path)")
+            return
         }
         
         do {
             self.whisperManager = try WhisperManager(modelURL: modelURL)
         } catch {
-            fatalError("Failed to initialize WhisperManager: \(error)")
+            print("Error initializing WhisperManager: \(error.localizedDescription)")
         }
-        
-        // On macOS, still ensure microphone access is requested/available
-        AVCaptureDevice.requestAccess(for: .audio) { granted in
-            if !granted {
-                print("Microphone permission not granted.")
+    }
+    
+    /// Request microphone permissions
+    /// - Returns: Bool indicating if permission was granted
+    private func requestMicrophonePermission() async -> Bool {
+        return await withCheckedContinuation { continuation in
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                continuation.resume(returning: granted)
             }
         }
     }
     
-    public func startRecording() throws {
+    /// Starts recording audio, converting it to the format required by Whisper
+    /// - Throws: WhisperError if format validation fails or audio engine fails to start
+    func startRecording() async throws {
+        // First check and request microphone permissions
+        let permissionGranted = await requestMicrophonePermission()
+        guard permissionGranted else {
+            throw WhisperError.permissionDenied
+        }
+        
+        // Configure audio session
+        let audioSession = AVAudioSession.sharedInstance()
+        try audioSession.setCategory(.record, mode: .default)
+        try audioSession.setActive(true)
+        
         // --- 1) Use the input node's *output* format to see how the hardware is feeding the engine.
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
@@ -54,12 +70,10 @@ public class AudioCaptureManager: ObservableObject {
                                           interleaved: false)!
         
         // --- 3) Validate the format for Whisper
-        let isValidFormat = (desiredFormat.sampleRate == 16000 &&
-                           desiredFormat.channelCount == 1 &&
-                           desiredFormat.commonFormat == .pcmFormatFloat32)
-        guard isValidFormat else {
-            throw WhisperError.invalidAudioFormat
-        }
+//        guard WhisperManager.validateAudioFormat(audioFormat) else {
+//            throw WhisperError.invalidAudioFormat
+//        }
+
         
         // --- 4) Prepare an AVAudioConverter from the hardware format to the desired (16kHz mono) format
         guard let converter = AVAudioConverter(from: inputFormat, to: desiredFormat) else {
@@ -96,25 +110,50 @@ public class AudioCaptureManager: ObservableObject {
                 self.inputBuffer.append(contentsOf: frames)
             }
             else if status == .endOfStream {
-                // Handle stream end if needed
+                print("Audio conversion: End of stream reached")
             }
             else if status == .error || error != nil {
-                // Handle conversion errors if needed
+                print("Audio conversion error: \(error?.localizedDescription ?? "Unknown error")")
             }
         }
         
-        // --- 6) Start the audio engine
-        try engine.start()
-        isRecording = true
+        do {
+            // --- 6) Start the audio engine
+            try engine.start()
+            isRecording = true
+        } catch {
+            throw WhisperError.audioCaptureError
+        }
     }
     
-    public func stopRecording() {
+    /// Stops recording audio and cleans up the audio engine
+    func stopRecording() {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         isRecording = false
     }
     
-    public func getAudioFrames() -> [Float] {
+    /// Returns the collected audio frames
+    /// - Returns: Array of float audio samples
+    func getAudioFrames() -> [Float] {
         return inputBuffer
+    }
+    
+    /// Transcribes the recorded audio to text
+    /// - Returns: Transcribed text as a string
+    /// - Throws: WhisperError if transcription fails
+    func transcribe() async throws -> String {
+        guard let whisperManager = whisperManager else {
+            throw WhisperError.initializationFailed
+        }
+        
+        let frames = getAudioFrames()
+        guard !frames.isEmpty else {
+            throw WhisperError.invalidAudioFormat
+        }
+        
+        // Get segments from Whisper and combine their text
+        let segments = try await whisperManager.transcribe(audioFrames: frames)
+        return segments.map { $0.text }.joined(separator: " ")
     }
 } 
