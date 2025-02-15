@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		8B81779D2D613E4700C2D71C /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 8B81779C2D613E4700C2D71C /* WhisperKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		8B9AF9A62D5E3FE400A247B0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -38,8 +42,11 @@
 				Info.plist,
 				localWisprApp.swift,
 				Managers/AudioCaptureManager.swift,
-				Models/WhisperTranscriber.swift,
 				"Preview Content/Preview Assets.xcassets",
+				Models/WhisperModel.swift,
+				Models/WhisperError.swift,
+				Views/ModelsView.swift,
+				Managers/ModelManager.swift,
 			);
 			target = 8B9AF9932D5E3FE300A247B0 /* localWispr */;
 		};
@@ -51,8 +58,11 @@
 				Info.plist,
 				localWisprApp.swift,
 				Managers/AudioCaptureManager.swift,
-				Models/WhisperTranscriber.swift,
 				"Preview Content/Preview Assets.xcassets",
+				Models/WhisperModel.swift,
+				Models/WhisperError.swift,
+				Views/ModelsView.swift,
+				Managers/ModelManager.swift,
 			);
 			target = 8B9AF9AE2D5E3FE400A247B0 /* localWisprUITests */;
 		};
@@ -78,11 +88,6 @@
 			path = localWispr;
 			sourceTree = "<group>";
 		};
-		8B9AFA012D5E809F00A247B0 /* Resources_new */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Resources_new;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,6 +95,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8B81779D2D613E4700C2D71C /* WhisperKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -110,6 +116,13 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		8B81779B2D613E4700C2D71C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		8B9AF98B2D5E3FE300A247B0 = {
 			isa = PBXGroup;
 			children = (
@@ -117,7 +130,7 @@
 				8B9AF9B22D5E3FE400A247B0 /* localWisprUITests */,
 				8B9AF9952D5E3FE300A247B0 /* Products */,
 				8B9AF9ED2D5E5E4200A247B0 /* localWispr */,
-				8B9AFA012D5E809F00A247B0 /* Resources_new */,
+				8B81779B2D613E4700C2D71C /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -148,6 +161,7 @@
 			);
 			name = localWispr;
 			packageProductDependencies = (
+				8B81779C2D613E4700C2D71C /* WhisperKit */,
 			);
 			productName = localWispr;
 			productReference = 8B9AF9942D5E3FE300A247B0 /* localWispr.app */;
@@ -192,7 +206,6 @@
 			fileSystemSynchronizedGroups = (
 				8B9AF9B22D5E3FE400A247B0 /* localWisprUITests */,
 				8B9AF9ED2D5E5E4200A247B0 /* localWispr */,
-				8B9AFA012D5E809F00A247B0 /* Resources_new */,
 			);
 			name = localWisprUITests;
 			packageProductDependencies = (
@@ -233,6 +246,9 @@
 			);
 			mainGroup = 8B9AF98B2D5E3FE300A247B0;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				8B81779A2D613E1B00C2D71C /* XCLocalSwiftPackageReference "WhisperKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 8B9AF9952D5E3FE300A247B0 /* Products */;
 			projectDirPath = "";
@@ -587,6 +603,21 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		8B81779A2D613E1B00C2D71C /* XCLocalSwiftPackageReference "WhisperKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = WhisperKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		8B81779C2D613E4700C2D71C /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8B81779A2D613E1B00C2D71C /* XCLocalSwiftPackageReference "WhisperKit" */;
+			productName = WhisperKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 8B9AF98C2D5E3FE300A247B0 /* Project object */;
 }
