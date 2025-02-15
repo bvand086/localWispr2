@@ -46,6 +46,8 @@ Thumbs.db
 models/
 *.ggml
 *.gguf
+Resources/ggml-base.en.bin
+dependencies/whisper.cpp/models/
 
 # Build products
 build/
@@ -58,4 +60,4 @@ DerivedData/
 *.mode2v3
 !default.mode2v3
 *.perspectivev3
-!default.perspectivev3 Resources/ggml-base.en.bin
+!default.perspectivev3
