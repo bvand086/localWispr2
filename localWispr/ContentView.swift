@@ -11,13 +11,15 @@ import WhisperKit
 
 struct ContentView: View {
     @StateObject private var audioManager = AudioCaptureManager()
+    @StateObject private var modelManager = ModelManager.shared
     @State private var transcriptionText = "Press the button or use Command+R to start recording..."
     @State private var isProcessing = false
     @State private var showingModelSelector = false
     @State private var modelError: String?
+    @State private var currentModel: Model?
     
     private var hasModel: Bool {
-        WhisperModel.defaultModels.contains { $0.isDownloaded }
+        currentModel != nil && modelManager.isModelDownloaded(currentModel!)
     }
     
     var body: some View {
@@ -36,6 +38,14 @@ struct ContentView: View {
                 }
                 .frame(maxHeight: .infinity)
             } else {
+                // Show current model info
+                HStack {
+                    Text("Using model: \(currentModel?.name ?? "") \(currentModel?.info ?? "")")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                
                 ScrollView {
                     Text(transcriptionText)
                         .padding()
@@ -70,8 +80,8 @@ struct ContentView: View {
                 }
             }
             
-            // Model management button
-            Button("Manage Models") {
+            // Model management button showing downloaded models count
+            Button("Manage Models (\(modelManager.getDownloadedModels().count))") {
                 showingModelSelector = true
             }
             .font(.footnote)
@@ -80,7 +90,9 @@ struct ContentView: View {
         .frame(minWidth: 400, minHeight: 300)
         .sheet(isPresented: $showingModelSelector) {
             NavigationStack {
-                ModelsView()
+                ModelsView(onModelSelect: { model in
+                    currentModel = model
+                })
             }
         }
         .alert("Model Error", isPresented: .constant(modelError != nil)) {
@@ -109,7 +121,7 @@ struct ContentView: View {
     }
     
     private func processAudio() async {
-        guard let model = WhisperModel.defaultModels.first(where: { $0.isDownloaded }) else {
+        guard let model = currentModel, modelManager.isModelDownloaded(model) else {
             modelError = "No model available. Please download a model first."
             return
         }
@@ -118,7 +130,7 @@ struct ContentView: View {
         let frames = audioManager.getAudioFrames()
         
         do {
-            let modelURL = ModelManager.shared.modelsDirectory.appendingPathComponent(model.filename)
+            let modelURL = modelManager.modelsDirectory.appendingPathComponent(model.filename)
             let whisperManager = try WhisperManager(modelURL: modelURL)
             let segments = try await whisperManager.transcribe(audioFrames: frames)
             await MainActor.run {

@@ -4,14 +4,47 @@ import AppKit
 struct ModelsView: View {
     @StateObject private var modelManager = ModelManager.shared
     @Environment(\.dismiss) private var dismiss
+    var onModelSelect: ((Model) -> Void)?
+    @State private var showAllModels = false
     
     var body: some View {
-        VStack {
-            List(ModelManager.getAllModels()) { model in
+        VStack(spacing: 0) {
+            // Header with title and close button
+            HStack {
+                Text(showAllModels ? "Available Models" : "Downloaded Models")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
+            
+            // Toggle between all models and downloaded models
+            Picker("Show", selection: $showAllModels) {
+                Text("Downloaded").tag(false)
+                Text("All Available").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .padding()
+            
+            // Models List
+            List(showAllModels ? ModelManager.getAllModels() : modelManager.getDownloadedModels()) { model in
                 HStack {
                     VStack(alignment: .leading) {
-                        Text(model.name)
-                            .font(.headline)
+                        HStack {
+                            Text(model.name)
+                                .font(.headline)
+                            if modelManager.isModelDownloaded(model) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                            }
+                        }
                         Text(model.info)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
@@ -33,12 +66,22 @@ struct ModelsView: View {
                         }
                     } else {
                         if modelManager.isModelDownloaded(model) {
-                            Button(role: .destructive) {
-                                modelManager.deleteModel(model)
-                            } label: {
-                                Label("Delete", systemImage: "trash")
+                            HStack {
+                                Button {
+                                    onModelSelect?(model)
+                                    dismiss()
+                                } label: {
+                                    Label("Use", systemImage: "play.circle")
+                                }
+                                .buttonStyle(.borderless)
+                                
+                                Button(role: .destructive) {
+                                    modelManager.deleteModel(model)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                .buttonStyle(.borderless)
                             }
-                            .buttonStyle(.borderless)
                         } else {
                             Button {
                                 Task {
@@ -66,7 +109,6 @@ struct ModelsView: View {
                     .padding(.horizontal)
             }
         }
-        .frame(width: 400, height: 600) // Made taller to accommodate more models
-        .navigationTitle("Available Models")
+        .frame(width: 400, height: 600)
     }
 } 
