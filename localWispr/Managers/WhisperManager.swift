@@ -1,17 +1,34 @@
 import Foundation
 import AVFoundation
 
-public final class WhisperManager {
+@MainActor
+public final class WhisperManager: ObservableObject {
     public static let shared = WhisperManager()
     
-    let modelURL: URL
+    @Published private(set) var isModelLoaded = false
+    @Published var errorMessage: String?
     
-    public init(modelURL: URL) {
-        self.modelURL = modelURL
-        // Initialize Whisper model here
+    private let modelManager = ModelManager.shared
+    private var modelURL: URL?
+    
+    private init() {}
+    
+    public func loadModel(modelName: String = "tiny") async {
+        do {
+            modelURL = try await modelManager.downloadModelIfNeeded(modelName: modelName)
+            isModelLoaded = true
+            errorMessage = nil
+        } catch {
+            errorMessage = "Failed to load model: \(error.localizedDescription)"
+            isModelLoaded = false
+        }
     }
     
     public func transcribe(audioFrames: [Float]) async throws -> String {
+        guard isModelLoaded, let modelURL = modelURL else {
+            throw WhisperError.modelNotLoaded
+        }
+        
         // Ensure we have valid audio data
         guard !audioFrames.isEmpty else {
             throw WhisperError.invalidAudioFormat
@@ -41,8 +58,8 @@ public final class WhisperManager {
     
     public func validateAudioFormat(_ format: AVAudioFormat) -> Bool {
         let isValid = (format.sampleRate == 16000 &&
-                       format.channelCount == 1 &&
-                       format.commonFormat == .pcmFormatFloat32)
+                      format.channelCount == 1 &&
+                      format.commonFormat == .pcmFormatFloat32)
         return isValid
     }
 } 

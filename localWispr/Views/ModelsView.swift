@@ -2,12 +2,12 @@ import SwiftUI
 import AppKit
 
 struct ModelsView: View {
-    @StateObject private var modelManager = ModelManager()
+    @StateObject private var modelManager = ModelManager.shared
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         VStack {
-            List(WhisperModel.defaultModels) { model in
+            List(ModelManager.getAllModels()) { model in
                 HStack {
                     VStack(alignment: .leading) {
                         Text(model.name)
@@ -32,7 +32,7 @@ struct ModelsView: View {
                                 .foregroundColor(.secondary)
                         }
                     } else {
-                        if model.isDownloaded {
+                        if modelManager.isModelDownloaded(model) {
                             Button(role: .destructive) {
                                 modelManager.deleteModel(model)
                             } label: {
@@ -66,7 +66,7 @@ struct ModelsView: View {
                     .padding(.horizontal)
             }
         }
-        .frame(width: 400, height: 300)
+        .frame(width: 400, height: 600) // Made taller to accommodate more models
         .navigationTitle("Available Models")
     }
 } 

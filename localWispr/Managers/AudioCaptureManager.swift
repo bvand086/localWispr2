@@ -51,7 +51,7 @@ public class AudioCaptureManager: ObservableObject {
         // First check and request microphone permissions
         let permissionGranted = await requestMicrophonePermission()
         guard permissionGranted else {
-            throw WhisperError.permissionDenied
+            throw WhisperError.transcriptionFailed("Microphone permission denied")
         }
         
         // --- 1) Use the input node's *output* format to see how the hardware is feeding the engine.
@@ -104,7 +104,7 @@ public class AudioCaptureManager: ObservableObject {
             try engine.start()
             isRecording = true
         } catch {
-            throw WhisperError.audioCaptureError
+            throw WhisperError.transcriptionFailed("Failed to start audio capture: \(error.localizedDescription)")
         }
     }
     
@@ -128,7 +128,7 @@ public class AudioCaptureManager: ObservableObject {
     /// - Throws: WhisperError if transcription fails
     public func transcribe() async throws -> String {
         guard let whisperManager = whisperManager else {
-            throw WhisperError.initializationFailed
+            throw WhisperError.transcriptionFailed("WhisperManager not initialized")
         }
         
         let frames = getAudioFrames()

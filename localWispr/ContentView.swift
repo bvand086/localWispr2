@@ -118,7 +118,7 @@ struct ContentView: View {
         let frames = audioManager.getAudioFrames()
         
         do {
-            let modelURL = WhisperModel.modelsDirectory.appendingPathComponent(model.filename)
+            let modelURL = ModelManager.shared.modelsDirectory.appendingPathComponent(model.filename)
             let whisperManager = try WhisperManager(modelURL: modelURL)
             let segments = try await whisperManager.transcribe(audioFrames: frames)
             await MainActor.run {

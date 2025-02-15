@@ -1,57 +1,45 @@
 import Foundation
+import SwiftUI
 
-struct WhisperModel: Identifiable, Hashable {
-    let id = UUID()
-    let name: String
-    let info: String
-    let url: URL
-    let filename: String
+public class WhisperModel: Identifiable, ObservableObject {
+    public let id = UUID()
+    public let name: String
+    public let filename: String
+    public let info: String
+    public let url: URL
     
-    var isDownloaded: Bool {
-        let modelPath = Self.modelsDirectory.appendingPathComponent(filename)
-        return FileManager.default.fileExists(atPath: modelPath.path)
+    @Published public private(set) var isDownloaded: Bool
+    
+    public init(name: String, filename: String, info: String, url: URL) {
+        self.name = name
+        self.filename = filename
+        self.info = info
+        self.url = url
+        self._isDownloaded = Published(initialValue: false)
+        self.checkIfDownloaded()
     }
     
-    static let defaultModels: [WhisperModel] = [
+    private func checkIfDownloaded() {
+        guard let resourcePath = Bundle.main.resourcePath else { return }
+        let modelsDir = URL(fileURLWithPath: resourcePath).appendingPathComponent("models")
+        let modelPath = modelsDir.appendingPathComponent(filename)
+        isDownloaded = FileManager.default.fileExists(atPath: modelPath.path)
+    }
+}
+
+extension WhisperModel {
+    public static let defaultModels: [WhisperModel] = [
         WhisperModel(
-            name: "base.en",
-            info: "(F16, 142 MiB)",
-            url: URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin")!,
-            filename: "ggml-base.en.bin"
+            name: "Tiny",
+            filename: "ggml-tiny.en.bin",
+            info: "Fastest, ~1GB RAM",
+            url: URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin")!
         ),
         WhisperModel(
-            name: "tiny.en",
-            info: "(F16, 75 MiB)",
-            url: URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin")!,
-            filename: "ggml-tiny.en.bin"
+            name: "Base",
+            filename: "ggml-base.en.bin",
+            info: "Good accuracy, ~2GB RAM",
+            url: URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin")!
         )
     ]
-    
-    static var modelsDirectory: URL {
-        let fileManager = FileManager.default
-        guard let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            fatalError("Could not access Application Support directory")
-        }
-        
-        let bundleID = Bundle.main.bundleIdentifier ?? "bvdw.localWispr"
-        let modelsDirURL = appSupportURL.appendingPathComponent(bundleID).appendingPathComponent("models")
-        
-        if !fileManager.fileExists(atPath: modelsDirURL.path) {
-            do {
-                try fileManager.createDirectory(at: modelsDirURL, withIntermediateDirectories: true)
-            } catch {
-                fatalError("Could not create models directory: \(error)")
-            }
-        }
-        
-        return modelsDirURL
-    }
-    
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-    
-    static func == (lhs: WhisperModel, rhs: WhisperModel) -> Bool {
-        lhs.id == rhs.id
-    }
 } 
