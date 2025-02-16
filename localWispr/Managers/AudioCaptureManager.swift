@@ -3,141 +3,131 @@ import SwiftUI
 import Foundation
 import WhisperKit
 
-/// Manages audio capture for macOS using AVAudioEngine
+/// Manages audio capture for macOS using AVAudioRecorder
+@MainActor
 public class AudioCaptureManager: ObservableObject {
-    private let engine = AVAudioEngine()
-    private var inputBuffer: [Float] = []
-    private var whisperManager: WhisperManager?
+    private var recorder: AVAudioRecorder?
+    private var recordingURL: URL
     
     @Published public var isRecording = false
     
     public init() {
-        // Attempt to load the model from the app bundle
-        guard let modelPath = Bundle.main.path(forResource: "ggml-base.en",
-                                             ofType: "bin",
-                                             inDirectory: "models") else {
-            print("Error: Whisper model not found in bundle. Make sure 'ggml-base.en.bin' is in localWispr/Resources/models.")
-            return
-        }
-        
-        let modelURL = URL(fileURLWithPath: modelPath)
-        do {
-            self.whisperManager = try WhisperManager(modelURL: modelURL)
-        } catch {
-            print("Error initializing WhisperManager: \(error.localizedDescription)")
-        }
-        
-        // Request microphone access
-        AVCaptureDevice.requestAccess(for: .audio) { granted in
-            if !granted {
-                print("Microphone permission not granted.")
-            }
-        }
+        // Create a temporary URL for recording
+        let tempDir = FileManager.default.temporaryDirectory
+        recordingURL = tempDir.appendingPathComponent("recording.wav")
     }
     
     /// Request microphone permissions
     /// - Returns: Bool indicating if permission was granted
     private func requestMicrophonePermission() async -> Bool {
-        return await withCheckedContinuation { continuation in
-            AVCaptureDevice.requestAccess(for: .audio) { granted in
-                continuation.resume(returning: granted)
+        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        
+        switch status {
+        case .authorized:
+            return true
+            
+        case .notDetermined:
+            // This will show the system permission dialog
+            return await AVCaptureDevice.requestAccess(for: .audio)
+            
+        case .denied, .restricted:
+            await MainActor.run {
+                let alert = NSAlert()
+                alert.messageText = "Microphone Access Required"
+                alert.informativeText = "Please grant microphone access in System Settings to use this feature."
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "Open System Settings")
+                alert.addButton(withTitle: "Cancel")
+                
+                if alert.runModal() == .alertFirstButtonReturn {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
             }
+            return false
+            
+        @unknown default:
+            return false
         }
     }
     
-    /// Starts recording audio, converting it to the format required by Whisper
-    /// - Throws: WhisperError if format validation fails or audio engine fails to start
+    /// Starts recording audio
+    /// - Throws: Error if recording fails to start
     public func startRecording() async throws {
         // First check and request microphone permissions
         let permissionGranted = await requestMicrophonePermission()
         guard permissionGranted else {
-            throw WhisperError.transcriptionFailed("Microphone permission denied")
+            throw WhisperError.transcriptionFailed("Microphone permission denied. Please grant access in System Settings.")
         }
         
-        // --- 1) Use the input node's *output* format to see how the hardware is feeding the engine.
-        let inputNode = engine.inputNode
-        let inputFormat = inputNode.outputFormat(forBus: 0)
-        
-        // --- 2) Define the desired audio format (16kHz mono PCM Float32)
-        let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                         sampleRate: 16000,
-                                         channels: 1,
-                                         interleaved: false)!
-        
-        // --- 3) Prepare an AVAudioConverter from the hardware format to our desired (16kHz mono) format
-        guard let converter = AVAudioConverter(from: inputFormat, to: desiredFormat) else {
-            throw WhisperError.invalidAudioFormat
-        }
-        
-        // Reset the buffer before starting
-        inputBuffer.removeAll()
-        
-        // --- 4) Install a tap on the input node to capture audio and run it through the converter
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
-            guard let self = self else { return }
-            
-            // Prepare an output buffer in the desired format
-            let convertedBuffer = AVAudioPCMBuffer(pcmFormat: desiredFormat,
-                                                  frameCapacity: AVAudioFrameCount(buffer.frameLength))!
-            
-            var error: NSError?
-            // Convert from the hardware buffer to our desired format
-            let status = converter.convert(to: convertedBuffer, error: &error) { _, outStatus in
-                outStatus.pointee = .haveData
-                return buffer
-            }
-            
-            if status == .haveData,
-               let channelData = convertedBuffer.floatChannelData?[0] {
-                let frameCount = Int(convertedBuffer.frameLength)
-                let frames = Array(UnsafeBufferPointer(start: channelData, count: frameCount))
-                self.inputBuffer.append(contentsOf: frames)
-            } else if status == .endOfStream {
-                print("Audio conversion: End of stream reached")
-            } else if status == .error || error != nil {
-                print("Audio conversion error: \(error?.localizedDescription ?? "Unknown error")")
-            }
-        }
+        // Set up the audio recording settings
+        let settings: [String: Any] = [
+            AVFormatIDKey: Int(kAudioFormatLinearPCM),
+            AVSampleRateKey: 16000.0,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
+            AVLinearPCMBitDepthKey: 16,
+            AVLinearPCMIsFloatKey: false
+        ]
         
         do {
-            // --- 5) Start the audio engine
-            try engine.start()
+            #if !os(macOS)
+            // Configure audio session for iOS
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playAndRecord, mode: .default)
+            try session.setActive(true)
+            #endif
+            
+            // Create and configure the recorder
+            recorder = try AVAudioRecorder(url: recordingURL, settings: settings)
+            recorder?.delegate = nil
+            recorder?.prepareToRecord()
+            
+            // Start recording
+            if recorder?.record() == false {
+                throw WhisperError.transcriptionFailed("Could not start recording")
+            }
+            
             isRecording = true
         } catch {
-            throw WhisperError.transcriptionFailed("Failed to start audio capture: \(error.localizedDescription)")
+            throw WhisperError.transcriptionFailed("Failed to start recording: \(error.localizedDescription)")
         }
     }
     
     public func stopRecording() {
-        engine.inputNode.removeTap(onBus: 0)
-        engine.stop()
+        recorder?.stop()
+        recorder = nil
         isRecording = false
         
-        #if os(iOS)
+        #if !os(macOS)
         // Clean up audio session on iOS
         try? AVAudioSession.sharedInstance().setActive(false)
         #endif
     }
     
     public func getAudioFrames() -> [Float] {
-        return inputBuffer
-    }
-    
-    /// Transcribes the recorded audio to text
-    /// - Returns: Transcribed text as a string
-    /// - Throws: WhisperError if transcription fails
-    public func transcribe() async throws -> String {
-        guard let whisperManager = whisperManager else {
-            throw WhisperError.transcriptionFailed("WhisperManager not initialized")
+        guard let audioFile = try? AVAudioFile(forReading: recordingURL) else {
+            return []
         }
         
-        let frames = getAudioFrames()
-        guard !frames.isEmpty else {
-            throw WhisperError.invalidAudioFormat
+        let format = audioFile.processingFormat
+        let frameCount = UInt32(audioFile.length)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+            return []
         }
         
-        // Get segments from Whisper and combine their text
-        let segments = try await whisperManager.transcribe(audioFrames: frames)
-        return segments.map { $0.text }.joined(separator: " ")
+        do {
+            try audioFile.read(into: buffer)
+            
+            // Convert buffer to array of floats
+            let channelData = buffer.floatChannelData?[0]
+            let frames = Array(UnsafeBufferPointer(start: channelData,
+                                                 count: Int(buffer.frameLength)))
+            return frames
+        } catch {
+            print("Error reading audio file: \(error)")
+            return []
+        }
     }
 } 

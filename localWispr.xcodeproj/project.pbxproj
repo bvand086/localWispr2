@@ -42,11 +42,11 @@
 				Info.plist,
 				localWisprApp.swift,
 				Managers/AudioCaptureManager.swift,
-				"Preview Content/Preview Assets.xcassets",
-				Models/WhisperModel.swift,
-				Models/WhisperError.swift,
-				Views/ModelsView.swift,
 				Managers/ModelManager.swift,
+				Models/WhisperError.swift,
+				Models/WhisperModel.swift,
+				"Preview Content/Preview Assets.xcassets",
+				Views/ModelsView.swift,
 			);
 			target = 8B9AF9932D5E3FE300A247B0 /* localWispr */;
 		};
@@ -58,11 +58,11 @@
 				Info.plist,
 				localWisprApp.swift,
 				Managers/AudioCaptureManager.swift,
-				"Preview Content/Preview Assets.xcassets",
-				Models/WhisperModel.swift,
-				Models/WhisperError.swift,
-				Views/ModelsView.swift,
 				Managers/ModelManager.swift,
+				Models/WhisperError.swift,
+				Models/WhisperModel.swift,
+				"Preview Content/Preview Assets.xcassets",
+				Views/ModelsView.swift,
 			);
 			target = 8B9AF9AE2D5E3FE400A247B0 /* localWisprUITests */;
 		};
@@ -454,7 +454,8 @@
 				DEVELOPMENT_TEAM = 5QVV95MU3M;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = localWispr/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -481,7 +482,8 @@
 				DEVELOPMENT_TEAM = 5QVV95MU3M;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = localWispr/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

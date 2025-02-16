@@ -1,0 +1,112 @@
+```xml
+<Plan>
+We’ll show how to fix microphone permission issues for a macOS SwiftUI app that uses a manual Info.plist alongside sandbox entitlements. This often requires disabling automatic Info.plist generation to avoid conflicts, ensuring the sandbox entitlements are included, and verifying the user can grant permission in System Settings. We’ll just provide an explanation (no file changes needed).
+</Plan>
+```
+
+Below is a step-by-step guide to ensure your macOS app **properly requests** the microphone permission and avoids Info.plist conflicts:
+
+---
+
+## 1. Confirm You Have the Required Keys in **Info.plist**
+
+In your `localWispr/Info.plist`, you have:
+
+```xml
+<key>NSMicrophoneUsageDescription</key>
+<string>We need access to your microphone to record audio for transcription.</string>
+```
+
+This is correct for **macOS** (and iOS). The system looks for `NSMicrophoneUsageDescription` in your **final** Info.plist at runtime to know what message to display in System Settings → Privacy → Microphone.  
+
+However, note that your Xcode build settings have `GENERATE_INFOPLIST_FILE = YES`. This means Xcode will try to create an Info.plist automatically. With a **manually provided** `Info.plist` in `localWispr/` **plus** auto-generation enabled, you can end up with conflicting or duplicate keys, which leads to Info.plist warnings or errors.
+
+---
+
+## 2. Sandbox Entitlements Must Include Microphone Access
+
+You’ve already added `com.apple.security.device.audio-input = true` under `com.apple.security.app-sandbox` in `localWispr.entitlements`:
+
+```xml
+<key>com.apple.security.app-sandbox</key>
+<true/>
+<key>com.apple.security.device.audio-input</key>
+<true/>
+```
+
+This is necessary for a sandboxed Mac app that records audio. Good work there!
+
+---
+
+## 3. Fix Potential Info.plist Conflicts
+
+### Option A: Keep the Manual **Info.plist** & Disable Auto-Generation
+
+1. **Disable** the auto-generated plist in Xcode Build Settings:
+   - Select the “localWispr” target.
+   - Go to **Build Settings** → search for “Generate Info.plist File” (or `GENERATE_INFOPLIST_FILE`).
+   - Set it to **NO**.
+2. **Point** the target to your manual `Info.plist`:
+   - In **Build Settings**, look for **Info.plist File** (or `INFOPLIST_FILE`).
+   - Make sure it references `localWispr/Info.plist`.
+3. Clean and rebuild. Now, **only** `localWispr/Info.plist` is used, containing your `NSMicrophoneUsageDescription` key.
+
+### Option B: Use Auto-Generated Info.plist & Remove the Manual One
+
+If you want to rely entirely on auto-generation:
+
+1. **Remove or rename** the manual Info.plist from `localWispr/Info.plist` so it’s not included in the build.
+2. In **Build Settings**, keep `GENERATE_INFOPLIST_FILE = YES`.
+3. Add the usage description in the build setting itself, for example:
+   - In the `.pbxproj` or your Build Settings, set:  
+     `INFOPLIST_KEY_NSMicrophoneUsageDescription = "We need access to your microphone...";`
+4. Clean and rebuild. The auto-generated Info.plist will have `NSMicrophoneUsageDescription` included automatically.
+
+Either way, you must ensure that in the final compiled app bundle’s `Info.plist`, there is exactly **one** `NSMicrophoneUsageDescription` entry—no duplicates.
+
+---
+
+## 4. How macOS Microphone Permissions Work
+
+Unlike iOS, macOS apps typically do **not** show a system pop-up for microphone permission. Instead, the app is listed under **System Settings** → **Privacy & Security** → **Microphone**, and the user must check the box to allow.  
+
+Your code in `ContentView` checks `AVCaptureDevice.authorizationStatus(for: .audio)`:
+- If `.notDetermined`, you call `AVCaptureDevice.requestAccess(for: .audio)`.
+- If `.denied`, the user must enable it manually in System Settings.
+
+That logic is correct for a sandboxed Mac app. Just remember that on macOS, **once** the user has denied it in System Settings, `requestAccess` never triggers a system alert again. They must manually re-enable in System Settings.
+
+You’re also opening System Settings programmatically:
+```swift
+if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+    NSWorkspace.shared.open(url)
+}
+```
+That’s fine for convenience, but the user still has to explicitly allow your app there.
+
+---
+
+## 5. Verify at Runtime
+
+- **Build & Run** from Xcode.  
+- In **System Settings** → **Privacy & Security** → **Microphone**, look for your app. 
+- Ensure it’s checked to allow microphone access.  
+- If it was denied, re-check it (then quit and relaunch your app).
+
+**Tip**: You can confirm your final Info.plist by:
+1. Building the app.
+2. Right-click the built product → **Show Package Contents**.
+3. Open `Contents/Info.plist` to see your final keys.
+
+---
+
+## Summary
+
+1. You already have `NSMicrophoneUsageDescription` in `localWispr/Info.plist`. Good.  
+2. You have the sandbox entitlements set for audio input. Also good.  
+3. Eliminate duplicate Info.plist generation by either:
+   - Disabling auto-generation in Build Settings, or
+   - Removing the manual plist and specifying the key in Build Settings.  
+4. After that, users must manually allow your app in System Settings for mic access.  
+
+With these changes, you’ll have no Info.plist conflicts and your sandboxed macOS SwiftUI app can properly record audio using the microphone.

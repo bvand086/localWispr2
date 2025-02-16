@@ -95,7 +95,7 @@ struct ContentView: View {
                 })
             }
         }
-        .alert("Model Error", isPresented: .constant(modelError != nil)) {
+        .alert("Error", isPresented: .constant(modelError != nil)) {
             Button("OK") {
                 modelError = nil
             }
@@ -108,14 +108,21 @@ struct ContentView: View {
     
     private func toggleRecording() async {
         if audioManager.isRecording {
-            audioManager.stopRecording()
+            await MainActor.run {
+                audioManager.stopRecording()
+            }
             await processAudio()
         } else {
             do {
                 try await audioManager.startRecording()
-                transcriptionText = "Recording... (Press the button or Command+R to stop)"
+                await MainActor.run {
+                    transcriptionText = "Recording... (Press the button or Command+R to stop)"
+                }
             } catch {
-                transcriptionText = "Failed to start recording: \(error.localizedDescription)"
+                await MainActor.run {
+                    transcriptionText = "Failed to start recording: \(error.localizedDescription)"
+                }
+                print("Recording error: \(error)")
             }
         }
     }
