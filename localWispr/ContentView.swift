@@ -22,22 +22,16 @@ struct ContentView: View {
         currentModel != nil && modelManager.isModelDownloaded(currentModel!)
     }
     
+    init() {
+        // Initialize with the last used model
+        _currentModel = State(initialValue: ModelManager.shared.getLastUsedModel())
+        // If no model is available, show the model selector
+        _showingModelSelector = State(initialValue: ModelManager.shared.getLastUsedModel() == nil)
+    }
+    
     var body: some View {
         VStack(spacing: 20) {
-            if !hasModel {
-                VStack(spacing: 12) {
-                    Text("No Whisper model found")
-                        .font(.headline)
-                    Text("Please download a model to start transcribing")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Button("Download Model") {
-                        showingModelSelector = true
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .frame(maxHeight: .infinity)
-            } else {
+            if hasModel {
                 // Show current model info
                 HStack {
                     Text("Using model: \(currentModel?.name ?? "") \(currentModel?.info ?? "")")
@@ -78,6 +72,19 @@ struct ContentView: View {
                 if isProcessing {
                     ProgressView("Processing audio...")
                 }
+            } else {
+                VStack(spacing: 12) {
+                    Text("No Whisper model found")
+                        .font(.headline)
+                    Text("Please download a model to start transcribing")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Button("Download Model") {
+                        showingModelSelector = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .frame(maxHeight: .infinity)
             }
             
             // Model management button showing downloaded models count
@@ -92,6 +99,7 @@ struct ContentView: View {
             NavigationStack {
                 ModelsView(onModelSelect: { model in
                     currentModel = model
+                    modelManager.saveLastUsedModel(model)
                 })
             }
         }

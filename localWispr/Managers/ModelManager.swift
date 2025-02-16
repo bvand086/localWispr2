@@ -232,6 +232,21 @@ public class ModelManager: ObservableObject {
     public func getDownloadedModels() -> [Model] {
         return Self.models.filter { isModelDownloaded($0) }
     }
+    
+    // Save the last used model name
+    public func saveLastUsedModel(_ model: Model) {
+        UserDefaults.standard.set(model.name, forKey: "lastUsedModelName")
+    }
+    
+    // Get the last used model, returns nil if no model was used before
+    public func getLastUsedModel() -> Model? {
+        guard let modelName = UserDefaults.standard.string(forKey: "lastUsedModelName"),
+              let model = getModel(named: modelName),
+              isModelDownloaded(model) else {
+            return nil
+        }
+        return model
+    }
 }
 
 extension URLSession {
